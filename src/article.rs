@@ -1,20 +1,25 @@
 use chrono::{DateTime, Utc};
+use rusqlite::types::ToSqlOutput;
+use rusqlite::ToSql;
 use serde::{Serialize, Serializer};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Article {
-  title: String,
-  authors: String,
-  year: u32,
-  source: Source,
-  description: String,
-  tags: Vec<String>,
-  proposed_by: UserId,
-  proposed_on: DateTime<Utc>
+  pub id: Option<u32>,
+  pub title: String,
+  pub authors: String,
+  pub year: u32,
+  pub source: Source,
+  pub description: String,
+  pub tags: Vec<String>,
+  pub proposed_by: UserId,
+  pub proposed_on: DateTime<Utc>,
 }
+
 impl Default for Article {
   fn default() -> Article {
     Article {
+      id: Some(1),
       title: "Ueber das Gesetz der Energieverteilung im Normalspektrum".to_string(),
       authors: "Max Planck".to_string(),
       year: 1900,
@@ -22,12 +27,24 @@ impl Default for Article {
       description: "".to_string(),
       tags: vec!["physics".to_string()],
       proposed_by: UserId("0".to_string()),
-      proposed_on: Utc::now()
+      proposed_on: Utc::now(),
     }
   }
 }
 
 #[derive(Clone, Debug, Serialize)]
-struct Source(String);
+pub struct Source(String);
 #[derive(Clone, Debug, Serialize)]
-struct UserId(String);
+pub struct UserId(String);
+
+impl ToSql for Source {
+  fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+    Ok(ToSqlOutput::from(self.0.clone()))
+  }
+}
+
+impl ToSql for UserId {
+  fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
+    Ok(ToSqlOutput::from(self.0.clone()))
+  }
+}

@@ -25,4 +25,5 @@ target
 
 /target
 /.idea
+*.db
 Cargo.lock

@@ -1,30 +1,42 @@
 mod article;
-mod store;
+mod db;
 
-use store::Store;
+use crate::article::Article;
+use rusqlite::{Connection, Result};
+use std::sync::{Arc, Mutex};
 use warp::reply::json;
 use warp::{Filter, Rejection, Reply};
 
-async fn get_all_articles(store: Store) -> Result<impl Reply, Rejection> {
-    let response = store.articles.read().await.clone();
-    Ok(json(&response))
+struct MockArticle {
+  id: i32,
+  title: String,
+}
+async fn get_all_articles(connection: Arc<Mutex<Connection>>) -> Result<impl Reply, Rejection> {
+  let a = connection.lock().unwrap();
+  // let response = store.articles.read().await.clone();
+  let response = db::get_all_articles(&a).unwrap();
+  Ok(json(&response))
 }
 
 #[tokio::main]
 async fn main() {
-    let store = Store::init();
+  let connection = db::init();
 
-    let store_filter = warp::any().map(move || store.clone());
+  db::insert_article(Article::default(), &connection).unwrap();
 
-    let root = warp::path::end().map(|| "Hello, world!");
+  let connection: Arc<Mutex<Connection>> = Arc::new(Mutex::new(connection));
 
-    let hello = warp::path!("hello" / String).map(|name: String| format!("Hello, {}!", name));
+  let connection_filter = warp::any().map(move || connection.clone());
 
-    let get_article = warp::path!("articles")
-        .and(store_filter.clone())
-        .and_then(get_all_articles);
+  let root = warp::path::end().map(|| "Hello, world!");
 
-    let routes = root.or(hello).or(get_article);
+  let hello = warp::path!("hello" / String).map(|name: String| format!("Hello, {}!", name));
 
-    warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
+  let get_articles = warp::path!("articles")
+    .and(connection_filter.clone())
+    .and_then(get_all_articles);
+
+  let routes = root.or(hello).or(get_articles);
+
+  warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 }
