@@ -1,7 +1,7 @@
-use chrono::{DateTime, Utc};
 use rusqlite::types::ToSqlOutput;
+use chrono::{DateTime, Utc};
+use serde::Serialize;
 use rusqlite::ToSql;
-use serde::{Serialize, Serializer};
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Article {

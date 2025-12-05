@@ -1,12 +1,10 @@
-use crate::article::Article;
 use rusqlite::{Connection, Row};
-use rusqlite::fallible_iterator::FallibleIterator;
-use warp::{Error, Filter};
+use crate::article::Article;
 
 pub fn init() -> Connection {
-  let conn = Connection::open("infiniteal.db").unwrap();
+  let connection = Connection::open("infiniteal.db").unwrap();
 
-  conn.execute(
+  connection.execute(
     "CREATE TABLE IF NOT EXISTS articles (
               id INTEGER PRIMARY KEY,
               title TEXT NOT NULL,
@@ -19,10 +17,9 @@ pub fn init() -> Connection {
               proposed_on DATETIME
           )",
     (),
-  )
-    .unwrap();
+  ).unwrap();
 
-  conn
+  connection
 }
 
 pub fn insert_article(article: Article, connection: &Connection) -> Result<usize, String> {
@@ -40,10 +37,10 @@ pub fn insert_article(article: Article, connection: &Connection) -> Result<usize
         article.proposed_by,
         article.proposed_on.timestamp(),
       ),
-    )
-    .map_err(|e| e.to_string())
+    ).map_err(|e| e.to_string())
 }
 
+#[allow(dead_code)]
 pub fn delete_article(article_id: i32, connection: Connection) -> Result<usize, String> {
   connection
     .execute("DELETE FROM articles WHERE id = ?1", (article_id,))
@@ -61,8 +58,9 @@ fn row_to_article(row: &Row) -> Result<Article, rusqlite::Error> {
 }
 pub fn get_all_articles(connection: &Connection) -> Result<Vec<Article>, String> {
   let mut statement = connection.prepare("SELECT * FROM articles").unwrap();
-  let results = statement.query_map([], row_to_article);
-  results
-    .map(|i| i.map(|a| a.unwrap()).collect())
+
+  statement
+    .query_map([], row_to_article)
+    .map(|rows| rows.map(|r| r.unwrap()).collect())
     .map_err(|e| e.to_string())
 }

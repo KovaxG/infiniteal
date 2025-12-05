@@ -1,20 +1,15 @@
 mod article;
 mod db;
 
-use crate::article::Article;
+use warp::{Filter, Rejection, Reply};
 use rusqlite::{Connection, Result};
+use crate::article::Article;
 use std::sync::{Arc, Mutex};
 use warp::reply::json;
-use warp::{Filter, Rejection, Reply};
 
-struct MockArticle {
-  id: i32,
-  title: String,
-}
 async fn get_all_articles(connection: Arc<Mutex<Connection>>) -> Result<impl Reply, Rejection> {
-  let a = connection.lock().unwrap();
-  // let response = store.articles.read().await.clone();
-  let response = db::get_all_articles(&a).unwrap();
+  let connection = connection.lock().unwrap();
+  let response = db::get_all_articles(&connection).unwrap();
   Ok(json(&response))
 }
 
