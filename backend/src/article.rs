@@ -34,6 +34,7 @@ impl Default for Article {
 
 #[derive(Clone, Debug, Serialize)]
 pub struct Source(String);
+
 #[derive(Clone, Debug, Serialize)]
 pub struct UserId(String);
 
