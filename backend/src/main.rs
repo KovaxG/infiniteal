@@ -5,7 +5,8 @@ use warp::{Filter, Rejection, Reply};
 use rusqlite::{Connection, Result};
 use crate::article::Article;
 use std::sync::{Arc, Mutex};
-use warp::reply::json;
+use warp::reply::{json, html};
+use std::fs;
 
 async fn get_all_articles(connection: Arc<Mutex<Connection>>) -> Result<impl Reply, Rejection> {
   let connection = connection.lock().unwrap();
@@ -23,7 +24,17 @@ async fn main() {
 
   let connection_filter = warp::any().map(move || connection.clone());
 
-  let root = warp::path::end().map(|| "Hello, world!");
+  let root =
+    warp::path::end()
+      .map(|| {
+        let contents = if fs::exists("index.html").unwrap() {
+            fs::read_to_string("index.html").unwrap()
+          } else {
+            "Go to frontend folder and run sh compile.sh to get an index.html".to_string()
+          };
+
+        html(contents)
+      });
 
   let hello = warp::path!("hello" / String).map(|name: String| format!("Hello, {}!", name));
 
