@@ -25,17 +25,18 @@ pub fn init() -> Connection {
 pub fn insert_article(article: Article, connection: &Connection) -> Result<usize, String> {
   connection
     .execute(
-      "INSERT INTO articles (title, authors, year, source, description, tags, \
-        proposed_by, proposed_on) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+      "\
+      INSERT INTO articles (title, authors, year, source, description, tags, proposed_by, proposed_on) \
+      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
       (
         article.title,
         article.authors,
         article.year,
         article.source,
         article.description,
-        article.tags.join(","),
+        article.tags,
         article.proposed_by,
-        article.proposed_on.timestamp(),
+        article.proposed_on,
       ),
     ).map_err(|e| e.to_string())
 }
@@ -47,12 +48,18 @@ pub fn delete_article(article_id: i32, connection: Connection) -> Result<usize, 
     .map_err(|e| e.to_string())
 }
 
-// TODO: implement this
 fn row_to_article(row: &Row) -> Result<Article, rusqlite::Error> {
   Ok(
     Article {
       id: row.get(0)?,
-      .. Article::default()
+      title: row.get(1)?,
+      authors: row.get(2)?,
+      year: row.get(3)?,
+      source: row.get(4)?,
+      description: row.get(5)?,
+      tags: row.get(6)?,
+      proposed_by: row.get(7)?,
+      proposed_on: row.get(8)?
     }
   )
 }
@@ -61,6 +68,6 @@ pub fn get_all_articles(connection: &Connection) -> Result<Vec<Article>, String>
 
   statement
     .query_map([], row_to_article)
-    .map(|rows| rows.map(|r| r.unwrap()).collect())
+    .map(|rows| rows.map(Result::unwrap).collect())
     .map_err(|e| e.to_string())
 }

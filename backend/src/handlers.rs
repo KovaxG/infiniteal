@@ -7,6 +7,7 @@ use tokio::io::AsyncWriteExt;
 use warp::reply::{html, json};
 use warp::{Rejection, Reply};
 
+use crate::article::Article;
 use crate::db;
 
 pub async fn handle_upload(mut form: warp::multipart::FormData) -> Result<impl Reply, Rejection> {
@@ -60,6 +61,8 @@ pub fn serve_webpage() -> impl Reply {
     html(contents)
 }
 
-pub fn save_article() -> impl Reply {
-  format!("Saving article!")
+pub fn save_article(article: Article, connection: Arc<Mutex<Connection>>) -> impl Reply {
+  let connection = connection.lock().unwrap();
+  db::insert_article(article, &connection).expect("Failed to save article to DB!");
+  "Ok"
 }
