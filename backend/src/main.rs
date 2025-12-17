@@ -16,7 +16,7 @@ async fn main() {
 
     let save_article =
         warp::post()
-        .and(warp::path!("api" / "article"))
+        .and(warp::path!("api" / "articles"))
         .and(warp::body::json())
         .and(connection_filter.clone())
         .map(handlers::save_article);
