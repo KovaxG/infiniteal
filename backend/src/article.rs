@@ -23,7 +23,7 @@ impl Default for Article {
       title: "Ueber das Gesetz der Energieverteilung im Normalspektrum".to_string(),
       authors: "Max Planck".to_string(),
       year: 1900,
-      source: Source("https://myweb.rz.uni-augsburg.de/~eckern/adp/history/historic-papers/1901_309_553-563.pdf".to_string()),
+      source: Source::Url("https://myweb.rz.uni-augsburg.de/~eckern/adp/history/historic-papers/1901_309_553-563.pdf".to_string()),
       description: "".to_string(),
       tags: vec!["physics".to_string()],
       proposed_by: UserId("0".to_string()),
@@ -33,14 +33,27 @@ impl Default for Article {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub struct Source(String);
+pub enum Source {
+  Url(String),
+  #[allow(dead_code)]
+  Path(String)
+}
+
+impl Source {
+  fn get_str(&self) -> String {
+    match self {
+      Source::Url(str) => format!("url-{}", str),
+      Source::Path(str) => format!("path-{}", str)
+    }
+  }
+}
 
 #[derive(Clone, Debug, Serialize)]
 pub struct UserId(String);
 
 impl ToSql for Source {
   fn to_sql(&self) -> rusqlite::Result<ToSqlOutput<'_>> {
-    Ok(ToSqlOutput::from(self.0.clone()))
+    Ok(ToSqlOutput::from(self.get_str()))
   }
 }
 
