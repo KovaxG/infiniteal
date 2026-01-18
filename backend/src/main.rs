@@ -21,7 +21,7 @@ async fn main() {
         .and(connection_filter.clone())
         .map(handlers::save_article);
 
-    let get_articles = warp::path!("articles")
+    let get_articles = warp::path!("api" / "articles")
         .and(connection_filter.clone())
         .and_then(handlers::get_all_articles);
 

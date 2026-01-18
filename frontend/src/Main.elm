@@ -1,13 +1,16 @@
 module Main exposing (..)
 
 import Html exposing (Html, div, h1, h2, text)
+import Html.Events exposing (onClick)
 import Http exposing (Error(..))
+import Json.Decode as Decoder
 import Browser
 import Bootstrap.Form.Input as Input
 import Bootstrap.Button as Button
 import Bootstrap.Grid.Col as Col
 import Bootstrap.Grid as Grid
 import Bootstrap.CDN as CDN
+import Bootstrap.Tab as Tab
 import Bootstrap.Button as Button
 import ISO8601
 import Time
@@ -36,7 +39,10 @@ type alias State =
   , proposedBy : Int
   , now : Time.Posix
   , zone : Time.Zone -- Note(Gyuri): the ISO8601 package does not take this into consideration!
-  , response: Maybe String
+  , response : Maybe String
+  , tabState : Tab.State
+  , tab : TabName
+  , articles : List Article
   }
 
 type Msg
@@ -52,6 +58,17 @@ type Msg
   | SaveFailed
   | Tick Time.Posix
   | AdjustTimeZone Time.Zone
+  | TabMsg Tab.State
+  | SetTab TabName
+  | GetSuccess (List Article)
+  | GetFailed
+
+type TabName = AddArticle | ListArticle
+
+tabNameToString : TabName -> String
+tabNameToString tabName = case tabName of
+  AddArticle -> "AddArticle"
+  ListArticle -> "ListArticle"
 
 init : Flag -> (State, Cmd Msg)
 init _ =
@@ -65,12 +82,18 @@ init _ =
     , now = Time.millisToPosix 0
     , zone = Time.utc
     , response = Nothing
+    , tabState = Tab.initialState
+    , tab = AddArticle
+    , articles = []
     }
   , Task.perform AdjustTimeZone Time.here
   )
 
 subscriptions : State -> Sub Msg
-subscriptions _ = Time.every 1000 Tick
+subscriptions state = Sub.batch
+  [ Time.every 1000 Tick
+  , Tab.subscriptions state.tabState TabMsg
+  ]
 
 articleFromState : State -> Article
 articleFromState s =
@@ -92,6 +115,12 @@ saveArticle article = Http.post
   , expect = Http.expectWhatever (Result.map (\_ -> SaveSuccess) >> Result.withDefault SaveFailed)
   }
 
+getAllArticles : Cmd Msg
+getAllArticles = Http.get
+  { url = "http://localhost:3030/api/articles"
+  , expect = Http.expectJson (Result.map GetSuccess >> Result.withDefault GetFailed) (Decoder.list Article.decoder)
+  }
+
 update : Msg -> State -> (State, Cmd Msg)
 update msg state = case msg of
   AdjustTimeZone z -> ({state | zone = z}, Cmd.none)
@@ -108,6 +137,17 @@ update msg state = case msg of
   SaveArticle -> (state, saveArticle (articleFromState state))
   SaveSuccess -> ({ state | response = Just "Success!" }, Cmd.none)
   SaveFailed -> ({ state | response = Just "Failed to save!" }, Cmd.none)
+  TabMsg ts -> ({ state | tabState = ts }, Cmd.none)
+  SetTab tab ->
+    ( { state
+    | tab = tab
+    , tabState = Tab.customInitialState (tabNameToString tab)
+    , response = Nothing
+    }
+    , if tab == ListArticle then getAllArticles else Cmd.none
+    )
+  GetSuccess articles -> ({ state | articles = articles }, Cmd.none)
+  GetFailed -> ({ state | articles = [] }, Cmd.none) -- TODO(Gyuri): maybe show some error
 
 view : State -> Html Msg
 view state = div []
@@ -115,7 +155,7 @@ view state = div []
   , CDN.fontAwesome
   , Grid.container []
     ( [ Grid.row [] [Grid.col [] [h1 [] [text "Infiniteal"]]]
-      , Grid.row [] [Grid.col [] [addArticle state]]
+      , Grid.row [] [Grid.col [] [tabs state]]
       ] ++
       ( state.response
         |> Maybe.map (\msg -> [Grid.row [] [Grid.col [] [text msg]]])
@@ -123,6 +163,24 @@ view state = div []
       )
     )
   ]
+
+tabs : State -> Html Msg
+tabs state =
+  Tab.config TabMsg
+  |> Tab.withAnimation
+  |> Tab.items
+    [ Tab.item
+      { id = "AddArticle"
+      , link = Tab.link [onClick (SetTab AddArticle)] [text "Add Article"]
+      , pane = Tab.pane [] [addArticle state]
+      }
+    , Tab.item
+      { id = "ListArticle"
+      , link = Tab.link [onClick (SetTab ListArticle)] [text "List Articles"]
+      , pane = Tab.pane [] [listArticles state.articles]
+      }
+    ]
+  |> Tab.view state.tabState
 
 addArticle : State -> Html Msg
 addArticle state = Grid.container []
@@ -161,4 +219,23 @@ addArticle state = Grid.container []
       ]
     ]
   , Button.button [Button.info, Button.onClick SaveArticle] [text "Save"]
+  ]
+
+listArticles : List Article -> Html Msg
+listArticles articles = Grid.container []
+  [ Grid.row [] [Grid.col [] [h2 [] [text "List of Articles"]]]
+  , Grid.row [] [Grid.col [] (List.map articleDiv articles)]
+  ]
+
+articleDiv : Article -> Html Msg
+articleDiv art = div []
+  [ text
+    <| "#" ++ String.fromInt (Maybe.withDefault 0 art.id)
+    ++ " 📄 " ++ art.title
+    ++ ", 👤 " ++ art.authors
+    ++ ", 🗓️ " ++ String.fromInt art.year
+    ++ ( case art.source of
+          Source.Url url -> ", 🔗 " ++ url
+          Source.Path _ -> "idk"
+       )
   ]
