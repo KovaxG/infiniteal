@@ -3,12 +3,28 @@ use futures::{StreamExt, TryStreamExt};
 use rusqlite::{Connection, Result};
 use std::fs;
 use std::sync::{Arc, Mutex};
+use serde::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use warp::reply::{html, json};
 use warp::{Rejection, Reply};
 
 use crate::article::Article;
 use crate::db;
+
+#[derive(Deserialize, Serialize)]
+pub struct Code {
+    code: String,
+}
+
+#[derive(Deserialize)]
+struct DiscordTokenResponse {
+    access_token: String,
+    token_type: String,
+    expires_in: u64,
+    refresh_token: String,
+    scope: String,
+}
+
 
 pub async fn handle_upload(mut form: warp::multipart::FormData) -> Result<impl Reply, Rejection> {
     while let Some(part) = form.try_next().await.map_err(|_| warp::reject())? {
@@ -65,4 +81,31 @@ pub fn save_article(article: Article, connection: Arc<Mutex<Connection>>) -> imp
   let connection = connection.lock().unwrap();
   db::insert_article(article, &connection).expect("Failed to save article to DB!");
   "Ok"
+}
+
+pub async fn handle_auth(code: Code, connection : Arc<Mutex<Connection>>) -> Result<impl Reply, Rejection> {
+    let _connection = connection.lock().unwrap();
+    let _discord_response = exchange_code_for_token(code.code.as_str());
+    Ok("Ok")
+}
+
+async fn exchange_code_for_token(code: &str) -> anyhow::Result<DiscordTokenResponse> {
+    let client = reqwest::Client::new();
+
+    let res = client
+      .post("https://discord.com/api/oauth2/token")
+      .form(&[
+          ("client_id", std::env::var("DISCORD_CLIENT_ID")?),
+          ("client_secret", std::env::var("DISCORD_CLIENT_SECRET")?),
+          ("grant_type", "authorization_code".into()),
+          ("code", code.into()),
+          ("redirect_uri", std::env::var("DISCORD_REDIRECT_URI")?),
+      ])
+      .send()
+      .await?
+      .error_for_status()?
+      .json::<DiscordTokenResponse>()
+      .await?;
+
+    Ok(res)
 }

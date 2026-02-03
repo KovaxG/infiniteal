@@ -29,6 +29,12 @@ async fn main() {
         .and(warp::path("upload"))
         .and(warp::multipart::form().max_length(10_000_000))
         .and_then(handlers::handle_upload);
+    
+    let auth = warp::post()
+      .and(warp::path!("api" / "auth"))
+      .and(warp::body::json())
+      .and(connection_filter.clone())
+      .and_then(handlers::handle_auth);
 
     let routes = root.or(save_article).or(get_articles).or(upload);
 
